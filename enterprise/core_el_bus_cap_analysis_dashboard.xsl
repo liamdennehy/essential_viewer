@@ -764,6 +764,27 @@
 						-ms-transition: all 0.5s ease;
 						transition: all 0.5s ease;
 					}
+					.infoConceptBox{
+						border:1pt solid #d3d3d3;
+						border-radius: 5px;
+						font-size:9pt;
+						display:inline-block;
+						background-color: #fff;
+						color:#000;
+						padding:2px;
+						margin:2px; 
+						min-width:48px;
+						text-align: center;
+					}
+					.infoConceptBoxHide{
+						border:0pt solid #d3d3d3;
+						border-radius: 5px;
+						font-size:0pt;
+						display:inline-block;
+						background-color: #fff;
+						padding:0px;
+						margin:0px; 	
+					}
 				</style>
 				<!--	 <xsl:call-template name="RenderRoadmapJSLibraries">
 					<xsl:with-param name="roadmapEnabled" select="$isRoadmapEnabled"/>
@@ -1318,6 +1339,13 @@
 						</div>	
 					{{/each}}
 				</script>
+				<script id="infoConcept-template" type="text/x-handlebars-template">
+					<div class="infoConceptBoxHide dataBox"><xsl:attribute name="easid">{{id}}</xsl:attribute>{{this.name}} <xsl:text> </xsl:text>
+						<!-- 
+							link to info views <span class="info-circle "><xsl:attribute name="easidinfo">{{id}}</xsl:attribute>{{this.infoViews.length}}</span>
+						-->
+					</div> 
+				</script>
 			</body>
 			<script>			
 				<xsl:call-template name="RenderViewerAPIJSFunction">
@@ -1474,6 +1502,9 @@
 			appScoreFragment = $("#appScore-template").html();
 			appScoreTemplate = Handlebars.compile(appScoreFragment);
 
+			infoConceptFragment = $("#infoConcept-template").html();
+			infoConceptTemplate = Handlebars.compile(infoConceptFragment);
+
 			Handlebars.registerHelper('getLevel', function(arg1) {
 				return parseInt(arg1) + 1; 
 			});
@@ -1519,9 +1550,13 @@
 					return d.id ==instance.id
 				});
 			 
-				let appHtml='';
+				let appHtml='<br/>';
 				let appArr=[];
-
+				thisApps[0].infoConcepts?.forEach((inf)=>{ 
+					 
+					appHtml=appHtml+infoConceptTemplate(inf);
+				}) 
+				return appHtml;
 			});
 
 			Handlebars.registerHelper('getCompareApps', function(alist) {
@@ -1533,8 +1568,8 @@
 
 			Handlebars.registerHelper('getColour', function(arg1) {
 				let colour='#fff';
-
-				if(parseInt(arg1) &lt;2){colour='#EDBB99'}
+				if(parseInt(arg1) ==0 ){colour='#d3d3d3'}
+				else if(parseInt(arg1) &lt;2){colour='#EDBB99'}
 				else if(parseInt(arg1) &lt;6){colour='#BA4A00'}
 				else if(parseInt(arg1) &gt;5){colour='#6E2C00'} 
 
@@ -1664,6 +1699,7 @@
 			$('#keyHolder').slideUp();
 			$('#comparePanel').slideUp() 
 			$('.goalbox').hide();
+			$('.dataBox').removeClass('infoConceptBox').addClass('infoConceptBoxHide');
 		}else if(thisId=='goals'){
 			$('.app-circle').hide();  
 			$('.proj-circle').show();
@@ -1671,6 +1707,7 @@
 			$('#comparePanel').slideUp()
 			$('#keyHolder').slideDown()  
 			$('.goalbox').show();
+			$('.dataBox').removeClass('infoConceptBox').addClass('infoConceptBoxHide');
 		}else if(thisId=='compare'){
 			$('.app-circle').hide();  
 			$('.compare-circle').show();  
@@ -1678,6 +1715,10 @@
 			$('#keyHolder').slideUp() 
 			$('#comparePanel').slideDown() 
 			$('.goalbox').hide();
+			$('.dataBox').removeClass('infoConceptBox').addClass('infoConceptBoxHide');
+		}else if(thisId=='data'){
+			$('.dataBox').addClass('infoConceptBox').removeClass('infoConceptBoxHide');
+			$('.info-circle').css('display','block')
 		}
 	})
 <!--
@@ -1722,7 +1763,7 @@
 			promise_loadViewerAPIData(viewAPIDataActor)
 			]).then(function (responses)
 			{
-			 //	console.log('viewAPIData',responses[0]);
+			// 	console.log('viewAPIData',responses[0]);
 			//	console.log('viewAPIDataApps',responses[1]);
 			 //	console.log('viewAPIDataCaps',responses[2]);
 			//	console.log('viewAPIDataSvcs',responses[3]);
@@ -1946,9 +1987,10 @@
 		
 	
 				//create paired arrays
-				
+				let showInfo=0;
 				workingArray.busCaptoAppDetails.forEach((bc)=>{
-				 
+					//if infoConcepts in array then tell view to show
+					if(bc.infoConcepts){showInfo=1}
 					let capArr=responses[2].businessCapabilities.find((e)=>{
 						return e.id==bc.id;
 					}); 
@@ -1964,6 +2006,13 @@
 					});
 
 				});
+
+				if(showInfo&gt;0){
+					$('#viewOption').append($('&lt;option>', {
+						value: 'data',
+						text: 'Information Overlay'
+					}));	
+				}
 				
 				let capMod = new Promise(function(resolve, reject) { 
 					resolve($('#capModelHolder').html(l0CapTemplate(workingArray.busCapHierarchy)));
@@ -2008,7 +2057,7 @@
 			let scopedCaps=[];
 
 var redrawView=function(){
- 
+	$('#capjump').prop('disabled', 'disabled');
 	workingCapId=0;
 	let workingAppsList=[];
 	let appOrgScopingDef = new ScopingProperty('orgUserIds', 'Group_Actor');
@@ -2044,13 +2093,13 @@ var redrawView=function(){
 	}else
 	{	 
 		localStorage.setItem("essentialhideCaps", "Showing");
-		$('.buscap').show(); 
-		$('.buscap').addClass("off-cap")
-		inScopeCapsApp.forEach((d)=>{
-		 
+	 $('.buscap').show(); 
+	<!--	inScopeCapsApp.forEach((d)=>{
+		 console.log('inScopeCapsApp',inScopeCapsApp)
 			 $('div[eascapid="'+d.id+'"]').removeClass("off-cap");
 		 
 			});
+		-->		
 	}
 
 	let appMod = new Promise(function(resolve, reject) { 
@@ -2238,7 +2287,7 @@ var redrawView=function(){
 								return ap==wl;
 							})
 							if(match){
-								console.log('apl',ap)
+						 
 								leftMatch.push(ap) 
 							}
 						})
@@ -2256,7 +2305,7 @@ var redrawView=function(){
 								return ap==wl;
 							})
 							if(match){ 
-								console.log('ap',ap)
+						 
 								rightMatch.push(ap) 
 							}
 						})
@@ -2302,8 +2351,7 @@ var redrawView=function(){
 			dataToShow['right']=$('#rightOrgList :selected').text(); 
 			dataToShow['name']=thisCapAppList[0].name;
 			dataToShow['id']=thisCapAppList[0].id;
-			dataToShow['rows']=rowToShow
-			console.log('dataToShow ',dataToShow)
+			dataToShow['rows']=rowToShow;
 			dataToShow.rows=dataToShow.rows.filter((elem, index, self) => self.findIndex( (t) =>{return (t.id === elem.id)}) === index)
 			
 			$('#appData').html(compareTemplate(dataToShow));
@@ -2317,7 +2365,7 @@ var redrawView=function(){
 		})
 
 function getApps(capid){
-	 console.log('ci',capid)
+ 
 	let thisCapAppList =  workingArrayAppsCaps.filter(function (d)
 	{
 		return d.id == capid;
@@ -2373,9 +2421,12 @@ panelData.apps.forEach((d)=>{
 	let workLeft=relevantOrgData.find((e)=>{ return e.id==leftOrg})
 	let workRight=relevantOrgData.find((e)=>{ return e.id==rightOrg})
 	let appCount=0
-	$('.app-circle').text('0')
+<!--	$('.app-circle').text('0')
 		$('.app-circle').each(function() {
-			if($(this).html() ==0) {$(this).parent().addClass("off-cap")}
+			console.log('addap',$(this).html() )
+			if($(this).html() ==0) {$(this).parent().addClass("off-cap")
+				console.log('added off-cap')
+				}
 
 			$(this).html() &lt; 2 ? $(this).css({'background-color': '#e8d3f0', 'color': 'black'}) : null;
 		  
@@ -2383,14 +2434,8 @@ panelData.apps.forEach((d)=>{
 		  
 			$(this).html() >= 6 ? $(this).css({'background-color': '#d59deb', 'color': 'black'}) : null;
 		  });
-
-		  workingArrayAppsCaps.forEach(function (d)
-		  {
-			   
-			  let appCount=d.filteredApps.length;
-			  $('*[easidscore="' + d.id + '"]').html(appCount);
-		   
-		  })
+		-->
+		  
 	  
 		  inScopeCapsApp.forEach((e)=>{
 			  
@@ -2398,9 +2443,6 @@ panelData.apps.forEach((d)=>{
 		  
 		  })
 
-
-
-	
 		  workingArrayAppsCaps.forEach(function (d)
 		{
 
@@ -2465,14 +2507,32 @@ panelData.apps.forEach((d)=>{
 			}else{
 			$('*[easidcompare="' + d.id + '"]').html('?').css("color","#fff");;
 			}
-			let colour='#fff';
-			let textColour='#fff';
-			if(appCount &lt;2){colour='#EDBB99'} 
-			else if(appCount &lt;6){colour='#BA4A00'} 
+
+	 
+		});
+		workingArrayAppsCaps.forEach(function (d)
+		  {
+			
+			  let appCount=d.filteredApps.length;
+			  $('*[easidscore="' + d.id + '"]').html(appCount);
+			 
+			  let colour='#fff';
+			let textColour='#fff'; 
+			if(appCount !=0 ){
+				$('*[eascapid="' + d.id + '"]').parent().removeClass("off-cap");
+		 
+		}
+			if(appCount ==0 ){colour='#d3d3d3';
+			$('*[eascapid="' + d.id + '"]').addClass("off-cap");
+		}   
+			else if(appCount &lt;2){colour='#EDBB99'}
+			else if(appCount &lt;6){colour='#BA4A00';
+			
+		} 
 			else{colour='#6E2C00'}
 			$('*[easidscore="' + d.id + '"]').css({'background-color':colour, 'color':textColour})
-	
-		});
+		  })
+		$('#capjump').prop('disabled', false);
 	})
 
 
@@ -2483,10 +2543,11 @@ function redrawView() {
 	essRefreshScopingValues()
 }
 });
+$('#capjump').prop('disabled', 'disabled');
 
 $('#capjump').change(function(){
 	var id = "#" + $(this).val();
-	console.log('id',id)
+ 
 	$('html, body').animate({
 		scrollTop: $(id).offset().top
 	}, 5000);
